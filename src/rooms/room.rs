@@ -2,6 +2,7 @@ use tokio::sync::{mpsc, RwLock};
 use warp::ws::Message;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use chrono::Utc;
 
 
 type Clients = RwLock<HashMap<usize, mpsc::UnboundedSender<Result<Message, warp::Error>>>>;
@@ -40,9 +41,17 @@ impl Room {
         self.clients.write().await.insert(id_, client);
     }
 
+    pub async fn remove_client(&self, id_: &usize) {
+        self.clients.write().await.remove(&id_);
+    }
+
     pub async fn send_message(&self, msg: String) {
-        for (_, client) in self.clients.read().await.iter() {
-            let _ = client.send(Ok(Message::text(&msg)));
+        for (id_, client) in self.clients.read().await.iter() {
+            if let Err(_) = client.send(Ok(Message::text(&msg))) {
+                self.remove_client(id_).await;
+                println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
+            }
+
         }
     }
 }

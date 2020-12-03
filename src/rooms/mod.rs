@@ -147,12 +147,6 @@ async fn handle_connection(
     let (tx, rx) = mpsc::unbounded_channel();
 
     room.add_client(tx).await;
-
-    rx.forward(user_ws_tx).map(|result| {
-        if let Err(e) = result {
-            eprintln!("websocket send error: {}", e);
-        }
-    }).await;
-    println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
+    let _ = rx.forward(user_ws_tx).await;
     Ok(())
 }

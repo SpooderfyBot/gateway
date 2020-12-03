@@ -37,26 +37,21 @@ pub async fn on_emitter_connect(ws: WebSocket, rooms: Rooms) {
 }
 
 async fn on_emitter_message(msg: Message, rooms: &Rooms) -> ParseResult<()> {
-    let msg = if let Ok(s) = msg.to_str() {
-        let msg: EmitterMessage = serde_json::from_str(s)?;
-        msg
-    } else {
-        return Ok(());
-    };
-
+    let msg: EmitterMessage = serde_json::from_slice(msg.as_bytes())?;
     let rooms = rooms.read().await;
     let room = match rooms.get(&msg.room_id) {
         Some(r) => r,
         None => return Ok(())
     };
 
-    room.send_message(msg.message).await;
+    let msg = serde_json::to_string(&msg.message)?;
+    room.send_message(msg).await;
 
     Ok(())
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct EmitterMessage {
     room_id: String,
-    message: String,
+    message: serde_json::Value,
 }
