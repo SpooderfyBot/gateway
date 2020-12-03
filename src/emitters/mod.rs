@@ -3,13 +3,13 @@ use tokio::sync::mpsc;
 use futures::{FutureExt, StreamExt};
 use serde::{Serialize, Deserialize};
 use serde_json::Result as ParseResult;
+use chrono::Utc;
 
 use crate::Rooms;
 
 
-
 pub async fn on_emitter_connect(ws: WebSocket, rooms: Rooms) {
-    println!("Emitter connected!");
+    println!("[ {} ] Emitter Connected", Utc::now().format("%D | %T"));
 
     let (user_ws_tx, mut user_ws_rx) = ws.split();
 
@@ -32,6 +32,8 @@ pub async fn on_emitter_connect(ws: WebSocket, rooms: Rooms) {
             eprintln!("Failed to parse emitter message: {:?}", e);
         };
     }
+
+    println!("[ {} ] Emitter Disconnected", Utc::now().format("%D | %T"));
 }
 
 async fn on_emitter_message(msg: Message, rooms: &Rooms) -> ParseResult<()> {

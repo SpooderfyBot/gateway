@@ -7,12 +7,56 @@ use tokio::sync::mpsc;
 
 use std::collections::HashMap;
 use std::error;
-
+use chrono::Utc;
+use std::convert::Infallible;
 use redis::AsyncCommands;
 
 use crate::Rooms;
 use crate::redis_client::RedisPool;
 
+
+
+pub async fn create_or_delete_room(
+    query: HashMap<String, String>,
+    rooms: Rooms
+)  -> Result<impl warp::Reply, Infallible>  {
+
+    if query.get("room_id").is_none() {
+        return Ok("Missing room_id query")
+    } else if query.get("op").is_none() {
+        return Ok("Missing op query")
+    }
+
+    let op = query.get("op").unwrap();
+    let room_id = query.get("room_id").unwrap();
+    if op == "create" {
+        create(room_id.clone(), rooms).await;
+    } else if op == "delete" {
+        delete(room_id.clone(), rooms).await;
+    }
+
+    Ok("[ OK ] Room operation complete")
+}
+
+async fn create(room_id: String, rooms: Rooms) {
+    println!(
+        "[ {} ] Creating Room with ID: {}",
+        Utc::now().format("%D | %T"),
+        &room_id
+    );
+    let new_room = room::Room::new();
+    rooms.write().await.insert(room_id, new_room);
+}
+
+async fn delete(room_id: String, rooms: Rooms) {
+    println!(
+        "[ {} ] Deleting Room with ID: {}",
+        Utc::now().format("%D | %T"),
+        &room_id
+    );
+
+    rooms.write().await.remove(&room_id);
+}
 
 
 pub async fn on_consumer_connect(

@@ -10,9 +10,8 @@ use std::net::SocketAddr;
 use std::fs;
 
 use tokio::sync::RwLock;
-
 use warp::Filter;
-
+use chrono::Utc;
 use redis_client::AioRedisPool;
 use serde::{Serialize, Deserialize};
 
@@ -25,6 +24,7 @@ use crate::rooms::room::Room;
 /// - Key is their id
 /// - Value is a sender of `warp::ws::Message`
 type Rooms = Arc<RwLock<HashMap<String, Room>>>;
+
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
@@ -69,13 +69,30 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
             ))
         });
 
+    // Adding rooms and deleting
+    let consumers_lock = consumers_base.clone();
+    let consumers = warp::any().map(move || consumers_lock.clone());
 
-    println!("Running @ ws://{}", &config.server_host);
+    let room_management = warp::post()
+        .and(warp::path("alter"))
+        .and(warp::query::<HashMap<String, String>>())
+        .and(consumers)
+        .and_then(rooms::create_or_delete_room);
+
+    println!(
+        "[ {} ] Running @ ws://{}",
+        Utc::now().format("%D | %T"),
+        &config.server_host
+    );
 
     let server: SocketAddr = config.server_host
         .parse()
         .expect("Unable to parse socket address");
-    warp::serve(consumer.or(emitter)).run(server).await;
+
+    let route = room_management
+        .or(consumer)
+        .or(emitter);
+    warp::serve(route).run(server).await;
     Ok(())
 }
 
