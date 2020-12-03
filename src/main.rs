@@ -1,6 +1,5 @@
 mod emitters;
 mod rooms;
-mod redis_client;
 
 // #![deny(warnings)]
 use std::collections::HashMap;
@@ -12,7 +11,6 @@ use std::fs;
 use tokio::sync::RwLock;
 use warp::Filter;
 use chrono::Utc;
-use redis_client::AioRedisPool;
 use serde::{Serialize, Deserialize};
 
 use crate::rooms::room::Room;
@@ -29,8 +27,6 @@ type Rooms = Arc<RwLock<HashMap<String, Room>>>;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn error::Error>> {
     let config = get_config();
-
-    let pool = AioRedisPool::create_clients(&config.redis_url, 5).await?;
 
     let consumers_base = Rooms::default();
 
@@ -52,20 +48,17 @@ async fn main() -> Result<(), Box<dyn error::Error>> {
     // Consumer
     let consumers_lock = consumers_base.clone();
     let consumers = warp::any().map(move || consumers_lock.clone());
-    let pool = warp::any().map(move || pool.clone());
 
     let consumer = warp::path("ws")
         .and(warp::ws())
         .and(warp::query::<HashMap<String, String>>())
         .and(consumers)
-        .and(pool)
-        .map(|ws: warp::ws::Ws, query, consumers, pool| {
+        .map(|ws: warp::ws::Ws, query, consumers| {
             // This will call our function if the handshake succeeds.
             ws.on_upgrade(move |socket| rooms::on_consumer_connect(
                 socket,
                 query,
                 consumers,
-                pool,
             ))
         });
 
@@ -110,7 +103,5 @@ fn get_config() -> ServerConfig {
 
 #[derive(Serialize, Deserialize)]
 struct ServerConfig {
-    redis_url: String,
     server_host: String,
-
 }

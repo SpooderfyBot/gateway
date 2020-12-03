@@ -1,6 +1,5 @@
 pub mod room;
 
-use serde::{Serialize, Deserialize};
 use warp::ws::WebSocket;
 use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
@@ -9,11 +8,14 @@ use std::collections::HashMap;
 use std::error;
 use chrono::Utc;
 use std::convert::Infallible;
-use redis::AsyncCommands;
 
 use crate::Rooms;
-use crate::redis_client::RedisPool;
 
+
+const CREATE: &'static str = "create";
+const DELETE: &'static str = "delete";
+const ADD_SESSION: &'static str = "add_session";
+const REMOVE_SESSION: &'static str = "remove_session";
 
 
 pub async fn create_or_delete_room(
@@ -29,11 +31,22 @@ pub async fn create_or_delete_room(
 
     let op = query.get("op").unwrap();
     let room_id = query.get("room_id").unwrap();
-    if op == "create" {
-        create(room_id.clone(), rooms).await;
-    } else if op == "delete" {
-        delete(room_id.clone(), rooms).await;
-    }
+    match op.as_str() {
+        CREATE => create(room_id.clone(), rooms).await,
+        DELETE => delete(room_id.clone(), rooms).await,
+        ADD_SESSION => {
+            if let Some(valid) = query.get("session_id") {
+                add_session(room_id.clone(), rooms, valid.clone()).await;
+            };
+        },
+        REMOVE_SESSION => {
+            if let Some(valid) = query.get("session_id") {
+                remove_session(room_id.clone(), rooms, valid.clone()).await;
+            };
+        },
+
+        _ => {}
+    };
 
     Ok("[ OK ] Room operation complete")
 }
@@ -58,14 +71,36 @@ async fn delete(room_id: String, rooms: Rooms) {
     rooms.write().await.remove(&room_id);
 }
 
+async fn add_session(room_id: String, rooms: Rooms, valid_id: String) {
+    println!(
+        "[ {} ] Adding session to room ID: {}",
+        Utc::now().format("%D | %T"),
+        &room_id
+    );
+    if let Some(room) = rooms.read().await.get(&room_id) {
+        room.add_session(valid_id).await;
+    };
+
+}
+
+async fn remove_session(room_id: String, rooms: Rooms, valid_id: String) {
+    println!(
+        "[ {} ] Removing session from room ID: {}",
+        Utc::now().format("%D | %T"),
+        &room_id
+    );
+    if let Some(room) = rooms.read().await.get(&room_id) {
+        room.remove_session(valid_id).await;
+    };
+
+}
 
 pub async fn on_consumer_connect(
     ws: WebSocket,
     query: HashMap<String, String>,
     rooms: Rooms,
-    pool: RedisPool
 ) {
-    if let Err(e) = handle_connection(ws, query, rooms, pool).await {
+    if let Err(e) = handle_connection(ws, query, rooms).await {
         eprintln!("Connection error: {:?}", e);
     }
 }
@@ -74,8 +109,8 @@ async fn handle_connection(
     ws: WebSocket,
     query: HashMap<String, String>,
     rooms: Rooms,
-    pool: RedisPool
 ) -> Result<(), Box<dyn error::Error>> {
+    println!("[ {} ] Client Connected", Utc::now().format("%D | %T"));
 
     let room_id = match query.get("id") {
         Some(r) => r,
@@ -102,18 +137,10 @@ async fn handle_connection(
         }
     };
 
-    // Get a redis lock
-    let mut con = pool.acquire().await;
-    let data: String = (*con).get(session_id).await?;
-
-    // Get the session
-    let session: RoomData = serde_json::from_str(&data)?;
-
-    if room_id != &session.room_id {
+    if !room.is_valid(session_id).await {
         let _ = ws.close().await;
         return Ok(())
     }
-
 
     let (user_ws_tx, _) = ws.split();
 
@@ -126,15 +153,6 @@ async fn handle_connection(
             eprintln!("websocket send error: {}", e);
         }
     }).await;
-
+    println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
     Ok(())
-}
-
-
-#[derive(Serialize, Deserialize)]
-struct RoomData {
-    room_id: String,
-    user_id: usize,
-    username: String,
-    avatar: String,
 }

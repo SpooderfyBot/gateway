@@ -1,15 +1,16 @@
 use tokio::sync::{mpsc, RwLock};
 use warp::ws::Message;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 
 type Clients = RwLock<HashMap<usize, mpsc::UnboundedSender<Result<Message, warp::Error>>>>;
-
+type Sessions = RwLock<HashSet<String>>;
 
 pub struct Room {
     counter: AtomicUsize,
-    clients: Clients
+    clients: Clients,
+    valid_sessions: Sessions,
 }
 
 impl Room {
@@ -17,7 +18,21 @@ impl Room {
         Room {
             counter: AtomicUsize::new(0),
             clients: Clients::default(),
+            valid_sessions: Sessions::default(),
         }
+    }
+
+    pub async fn is_valid(&self, session_id: &String) -> bool {
+        let resp = self.valid_sessions.read().await;
+        resp.get(session_id).is_some()
+    }
+
+    pub async fn add_session(&self, session_id: String) {
+        self.valid_sessions.write().await.insert(session_id);
+    }
+
+    pub async fn remove_session(&self, session_id: String) {
+        self.valid_sessions.write().await.remove(&session_id);
     }
 
     pub async fn add_client(&self, client: mpsc::UnboundedSender<Result<Message, warp::Error>>) {
