@@ -15,7 +15,6 @@ chrono = "0.4.19"
 serde = { version=  "1.0.117", features = ["derive"] }
 redis = { version = "0.17.0", features = ["tokio-comp"] }
 tokio = { version = "0.2", features = ["full"] }
-mimalloc = { version = "*", default-features = false}
 
 [profile.release]
 lto = "fat"
