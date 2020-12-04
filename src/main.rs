@@ -12,9 +12,13 @@ use tokio::sync::RwLock;
 use warp::Filter;
 use chrono::Utc;
 use serde::{Serialize, Deserialize};
+use mimalloc::MiMalloc;
 
 use crate::rooms::room::Room;
 
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 
 /// Our state of currently connected users known as the rooms.
