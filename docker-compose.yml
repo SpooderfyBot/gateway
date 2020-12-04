@@ -11,5 +11,8 @@ services:
       - .:/code
     ports:
       - "5051:5051"
-    networks:
-      - spooderfy_network
+      -
+networks:
+  default:
+    external:
+      name: spooderfy_network
