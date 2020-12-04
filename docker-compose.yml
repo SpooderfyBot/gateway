@@ -1,0 +1,13 @@
+version: '3'
+
+services:
+  spooderfy_gateway:
+    build: .
+    container_name: spooderfy_gateway
+    image: spooderfy_gateway
+    restart: always
+    command: cargo run --release
+    volumes:
+      - .:/code
+    ports:
+    - "5051:5051"
