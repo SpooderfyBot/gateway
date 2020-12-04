@@ -10,4 +10,6 @@ services:
     volumes:
       - .:/code
     ports:
-    - "5051:5051"
+      - "5051:5051"
+    networks:
+      - spooderfy_network
