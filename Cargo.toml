@@ -13,7 +13,6 @@ serde_json = "1.0.59"
 chrono = "0.4.19"
 
 serde = { version=  "1.0.117", features = ["derive"] }
-redis = { version = "0.17.0", features = ["tokio-comp"] }
 tokio = { version = "0.2", features = ["full"] }
 
 [profile.release]
