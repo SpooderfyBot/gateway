@@ -1,7 +1,7 @@
 pub mod room;
 
 use warp::ws::WebSocket;
-use futures::{FutureExt, StreamExt};
+use futures::StreamExt;
 use tokio::sync::mpsc;
 
 use std::collections::HashMap;
