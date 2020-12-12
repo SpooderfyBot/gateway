@@ -213,5 +213,6 @@ async fn handle_connection(
 
     room.add_client(tx).await;
     let _ = rx.forward(user_ws_tx).await;
+    println!("closing luil");
     Ok(())
 }
