@@ -24,31 +24,90 @@ pub async fn create_or_delete_room(
 )  -> Result<impl warp::Reply, Infallible>  {
 
     if query.get("room_id").is_none() {
-        return Ok("Missing room_id query")
+        return Ok(
+            warp::http::Response::builder()
+                .status(400)
+                .body("[ 400 ] Missing room_id query")
+                .unwrap()
+        )
     } else if query.get("op").is_none() {
-        return Ok("Missing op query")
+        return Ok(
+            warp::http::Response::builder()
+                .status(400)
+                .body("[ 400 ] Missing op query")
+                .unwrap()
+        )
     }
 
     let op = query.get("op").unwrap();
     let room_id = query.get("room_id").unwrap();
-    match op.as_str() {
-        CREATE => create(room_id.clone(), rooms).await,
+    let exists = match op.as_str() {
+        CREATE => {
+            create(room_id.clone(), rooms).await;
+
+            true  // always will exist
+        },
         DELETE => delete(room_id.clone(), rooms).await,
         ADD_SESSION => {
-            if let Some(valid) = query.get("session_id") {
-                add_session(room_id.clone(), rooms, valid.clone()).await;
+            let exists = if let Some(valid) = query.get("session_id") {
+                add_session(
+                    room_id.clone(),
+                    rooms,
+                    valid.clone()
+                ).await
+            } else {
+                return Ok(
+                    warp::http::Response::builder()
+                        .status(400)
+                        .body("[ 400 ] session_id op query")
+                        .unwrap()
+                )
             };
+
+            exists
         },
         REMOVE_SESSION => {
-            if let Some(valid) = query.get("session_id") {
-                remove_session(room_id.clone(), rooms, valid.clone()).await;
+            let exists = if let Some(valid) = query.get("session_id") {
+                remove_session(
+                    room_id.clone(),
+                    rooms,
+                    valid.clone()
+                ).await
+            } else {
+                return Ok(
+                    warp::http::Response::builder()
+                        .status(400)
+                        .body("[ 400 ] session_id op query")
+                        .unwrap()
+                )
             };
+
+            exists
         },
 
-        _ => {}
+        _ => {
+            return Ok(
+                warp::http::Response::builder()
+                    .status(404)
+                    .body("[ 404 ] Unknown operation")
+                    .unwrap()
+            )
+        }
     };
 
-    Ok("[ OK ] Room operation complete")
+    let resp = if exists {
+       warp::http::Response::builder()
+            .status(200)
+            .body("[ OK ] Room operation complete")
+            .unwrap()
+    } else {
+        warp::http::Response::builder()
+            .status(404)
+            .body("[ 404 ] Item does not exist")
+            .unwrap()
+    } ;
+
+    Ok(resp)
 }
 
 async fn create(room_id: String, rooms: Rooms) {
@@ -61,17 +120,17 @@ async fn create(room_id: String, rooms: Rooms) {
     rooms.write().await.insert(room_id, new_room);
 }
 
-async fn delete(room_id: String, rooms: Rooms) {
+async fn delete(room_id: String, rooms: Rooms) -> bool {
     println!(
         "[ {} ] Deleting Room with ID: {}",
         Utc::now().format("%D | %T"),
         &room_id
     );
 
-    rooms.write().await.remove(&room_id);
+    rooms.write().await.remove(&room_id).is_none()
 }
 
-async fn add_session(room_id: String, rooms: Rooms, valid_id: String) {
+async fn add_session(room_id: String, rooms: Rooms, valid_id: String) -> bool {
     println!(
         "[ {} ] Adding session to room ID: {}",
         Utc::now().format("%D | %T"),
@@ -79,11 +138,14 @@ async fn add_session(room_id: String, rooms: Rooms, valid_id: String) {
     );
     if let Some(room) = rooms.read().await.get(&room_id) {
         room.add_session(valid_id).await;
-    };
+        true
+    } else {
+        false
+    }
 
 }
 
-async fn remove_session(room_id: String, rooms: Rooms, valid_id: String) {
+async fn remove_session(room_id: String, rooms: Rooms, valid_id: String) -> bool {
     println!(
         "[ {} ] Removing session from room ID: {}",
         Utc::now().format("%D | %T"),
@@ -91,7 +153,10 @@ async fn remove_session(room_id: String, rooms: Rooms, valid_id: String) {
     );
     if let Some(room) = rooms.read().await.get(&room_id) {
         room.remove_session(valid_id).await;
-    };
+        true
+    } else {
+        false
+    }
 
 }
 
