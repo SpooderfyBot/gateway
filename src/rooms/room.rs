@@ -37,30 +37,32 @@ impl Room {
         self.valid_sessions.write().await.remove(&session_id);
     }
 
-    pub async fn add_client(&self, client: mpsc::UnboundedSender<Result<Message, warp::Error>>) {
+    pub async fn add_client(
+        &self,
+        client: mpsc::UnboundedSender<Result<Message, warp::Error>>
+    ) -> usize {
         let id_ = self.counter.fetch_add(1, Ordering::Relaxed);
         self.clients.write().await.insert(id_, client);
+
+        id_
     }
 
     pub async fn remove_client(&self, id_: &usize) {
         self.clients.write().await.remove(&id_);
+        println!("[ {} ] Client Removed", Utc::now().format("%D | %T"));
     }
 
     pub async fn send_message(&self, msg: String) {
-        for (id_, client) in self.clients.read().await.iter() {
-            if let Err(_) = client.send(Ok(Message::text(&msg))) {
-                self.remove_client(id_).await;
-                println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
-            }
+        for (_, client) in self.clients.read().await.iter() {
+            let _ = client.send(Ok(Message::text(&msg)));
         }
     }
 
-    async fn ping_clients(&self) {
+    pub async fn ping_clients(&self) {
         loop {
             for (id_, client) in self.clients.read().await.iter() {
-                if let Err(_) = client.send(Ok(Message::ping(1))) {
+                if let Err(_) = client.send(Ok(Message::ping(Vec::with_capacity(0)))) {
                     self.remove_client(id_).await;
-                    println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
                 }
             }
             tokio::time::delay_for(Duration::from_secs(5)).await;

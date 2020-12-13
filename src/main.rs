@@ -20,7 +20,7 @@ use crate::rooms::room::Room;
 ///
 /// - Key is their id
 /// - Value is a sender of `warp::ws::Message`
-type Rooms = Arc<RwLock<HashMap<String, Room>>>;
+type Rooms = Arc<RwLock<HashMap<String, Arc<Room>>>>;
 
 
 #[tokio::main]

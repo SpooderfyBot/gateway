@@ -8,6 +8,7 @@ use chrono::Utc;
 use std::collections::HashMap;
 use std::error;
 use std::convert::Infallible;
+use std::sync::Arc;
 
 use crate::Rooms;
 
@@ -116,8 +117,13 @@ async fn create(room_id: String, rooms: Rooms) {
         Utc::now().format("%D | %T"),
         &room_id
     );
-    let new_room = room::Room::new();
-    rooms.write().await.insert(room_id, new_room);
+    let new_room = Arc::new(room::Room::new());
+    rooms.write().await.insert(room_id, new_room.clone());
+    tokio::spawn(ping_room(new_room));
+}
+
+async fn ping_room(room: Arc<room::Room>) {
+    room.ping_clients().await;
 }
 
 async fn delete(room_id: String, rooms: Rooms) -> bool {
@@ -211,7 +217,7 @@ async fn handle_connection(
 
     let (tx, rx) = mpsc::unbounded_channel();
 
-    room.add_client(tx).await;
+    let my_id = room.add_client(tx).await;
 
     tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
         if let Err(e) = result {
@@ -228,11 +234,11 @@ async fn handle_connection(
         };
 
         if !msg.is_pong() {
+            println!("ponged");
             break
         }
     }
 
-    let _ = ws.close().await;
-    println!("closing luil");
+    room.remove_client(&my_id).await;
     Ok(())
 }
