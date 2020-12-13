@@ -24,11 +24,6 @@ impl Room {
         }
     }
 
-    pub async fn is_valid(&self, session_id: &String) -> bool {
-        let resp = self.valid_sessions.read().await;
-        resp.get(session_id).is_some()
-    }
-
     pub async fn add_session(&self, session_id: String) {
         self.valid_sessions.write().await.insert(session_id);
     }
