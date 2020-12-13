@@ -3,6 +3,7 @@ use warp::ws::Message;
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use chrono::Utc;
+use tokio::time::Duration;
 
 
 type Clients = RwLock<HashMap<usize, mpsc::UnboundedSender<Result<Message, warp::Error>>>>;
@@ -51,7 +52,18 @@ impl Room {
                 self.remove_client(id_).await;
                 println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
             }
+        }
+    }
 
+    async fn ping_clients(&self) {
+        loop {
+            for (id_, client) in self.clients.read().await.iter() {
+                if let Err(_) = client.send(Ok(Message::ping(1))) {
+                    self.remove_client(id_).await;
+                    println!("[ {} ] Client Disconnected", Utc::now().format("%D | %T"));
+                }
+            }
+            tokio::time::delay_for(Duration::from_secs(5)).await;
         }
     }
 }

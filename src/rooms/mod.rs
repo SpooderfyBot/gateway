@@ -227,9 +227,12 @@ async fn handle_connection(
             }
         };
 
-        println!("{}",msg.is_ping());
+        if !msg.is_pong() {
+            break
+        }
     }
 
+    let _ = ws.close().await;
     println!("closing luil");
     Ok(())
 }
