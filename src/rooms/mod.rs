@@ -191,13 +191,13 @@ async fn handle_connection(
         }
     };
 
-    let session_id =  match query.get("session") {
-        Some(r) => r,
-        None => {
-            let _ = ws.close().await;
-            return Ok(())
-        }
-    };
+    // let session_id =  match query.get("session") {
+    //    Some(r) => r,
+    //    None => {
+    //        let _ = ws.close().await;
+    //        return Ok(())
+    //    }
+    // };
 
     let rooms = rooms.read().await;
     let room = match rooms.get(room_id) {
@@ -208,10 +208,10 @@ async fn handle_connection(
         }
     };
 
-    if !room.is_valid(session_id).await {
-        let _ = ws.close().await;
-        return Ok(())
-    }
+    // if !room.is_valid(session_id).await {
+    //     let _ = ws.close().await;
+    //     return Ok(())
+    // }
 
     let (user_ws_tx, mut user_ws_rx) = ws.split();
 
