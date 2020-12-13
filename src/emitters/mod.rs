@@ -15,9 +15,7 @@ pub async fn on_emitter_connect(ws: WebSocket, rooms: Rooms) {
 
     let (_, rx) = mpsc::unbounded_channel();
     tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
-        if let Err(e) = result {
-            eprintln!("websocket send error: {}", e);
-        }
+        if let Err(_) = result { }
     }));
 
     while let Some(result) = user_ws_rx.next().await {
