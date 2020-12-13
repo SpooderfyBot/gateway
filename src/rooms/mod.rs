@@ -1,12 +1,12 @@
 pub mod room;
 
 use warp::ws::WebSocket;
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use tokio::sync::mpsc;
+use chrono::Utc;
 
 use std::collections::HashMap;
 use std::error;
-use chrono::Utc;
 use std::convert::Infallible;
 
 use crate::Rooms;
@@ -207,12 +207,29 @@ async fn handle_connection(
         return Ok(())
     }
 
-    let (user_ws_tx, _) = ws.split();
+    let (user_ws_tx, mut user_ws_rx) = ws.split();
 
     let (tx, rx) = mpsc::unbounded_channel();
 
     room.add_client(tx).await;
-    let _ = rx.forward(user_ws_tx).await;
+
+    tokio::task::spawn(rx.forward(user_ws_tx).map(|result| {
+        if let Err(e) = result {
+            eprintln!("websocket send error: {}", e);
+        }
+    }));
+
+    while let Some(result) = user_ws_rx.next().await {
+        let msg = match result {
+            Ok(msg) => msg,
+            Err(_) => {
+                break;
+            }
+        };
+
+        println!("{}",msg.is_ping());
+    }
+
     println!("closing luil");
     Ok(())
 }
