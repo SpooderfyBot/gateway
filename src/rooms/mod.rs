@@ -204,7 +204,7 @@ async fn handle_connection(
     // };
 
     let rooms = rooms.read().await;
-    let room = match rooms.get(&*room_id.to_lowercase()) {
+    let room = match rooms.get(&*room_id.to_uppercase()) {
         Some(r) => r,
         None => {
             println!(
