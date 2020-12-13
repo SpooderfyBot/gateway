@@ -186,6 +186,10 @@ async fn handle_connection(
     let room_id = match query.get("id") {
         Some(r) => r,
         None => {
+            println!(
+                "[ {} ] No RoomID supplied closing...",
+                Utc::now().format("%D | %T")
+            );
             let _ = ws.close().await;
             return Ok(())
         }
@@ -200,9 +204,13 @@ async fn handle_connection(
     // };
 
     let rooms = rooms.read().await;
-    let room = match rooms.get(room_id) {
+    let room = match rooms.get(&*room_id.to_lowercase()) {
         Some(r) => r,
         None => {
+            println!(
+                "[ {} ] No Room exists closing...",
+                Utc::now().format("%D | %T")
+            );
             let _ = ws.close().await;
             return Ok(())
         }
