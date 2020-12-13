@@ -208,8 +208,9 @@ async fn handle_connection(
         Some(r) => r,
         None => {
             println!(
-                "[ {} ] No Room exists closing...",
-                Utc::now().format("%D | %T")
+                "[ {} ] No Room exists with id: {} closing...",
+                Utc::now().format("%D | %T"),
+                room_id,
             );
             let _ = ws.close().await;
             return Ok(())
