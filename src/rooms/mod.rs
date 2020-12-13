@@ -120,6 +120,7 @@ async fn create(room_id: String, rooms: Rooms) {
     let new_room = Arc::new(room::Room::new());
     rooms.write().await.insert(room_id, new_room.clone());
     tokio::spawn(ping_room(new_room));
+    println!("thinking");
 }
 
 async fn ping_room(room: Arc<room::Room>) {
