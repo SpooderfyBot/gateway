@@ -40,7 +40,7 @@ impl MediaPlayer {
             Some(v) => Some(v.clone()),
         };
 
-        lock.rotate(1);
+        lock.lrotate(1);
 
         res
     }
@@ -112,12 +112,24 @@ impl<T> AtomicDeQueue<T> {
     }
 
     fn rotate(&self, n: usize) {
-        let current_len = self.len();
-        let current_index = self.index.load(Relaxed);
-        if (current_index + n) >= current_len {
-            self.index.store((current_index + n) - current_len, Relaxed);
+        let len = self.len();
+        let n = n % len;
+        let maybe_index = (self.index.load(Relaxed) as isize) - (n as isize);
+        if maybe_index < 0 {
+            self.index.store((len as isize + maybe_index) as usize, Relaxed)
         } else {
-            self.index.fetch_add(n, Relaxed);
+            self.index.store(maybe_index as usize, Relaxed)
+        }
+    }
+
+    fn lrotate(&self, n: usize) {
+        let len = self.len();
+        let n = n % len;
+        let maybe_index = self.index.load(Relaxed) + n;
+        if maybe_index >= len {
+            self.index.store(len - maybe_index, Relaxed)
+        } else {
+            self.index.store(maybe_index, Relaxed)
         }
     }
 
@@ -151,5 +163,119 @@ impl<T> AtomicDeQueue<T> {
 impl<T> Default for AtomicDeQueue<T> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn get_queue() -> AtomicDeQueue<Track> {
+        let mut queue: AtomicDeQueue<Track> = AtomicDeQueue::new();
+
+        let t1 = Track { title: "Track 1".to_string(), url: "".to_string() };
+        let t2 = Track { title: "Track 2".to_string(), url: "".to_string() };
+        let t3 = Track { title: "Track 3".to_string(), url: "".to_string() };
+
+        queue.append(t1);
+        queue.append(t2);
+        queue.append(t3);
+
+        queue
+    }
+
+    #[test]
+    fn test_queue_len() {
+        let queue = get_queue();
+
+        assert_eq!(queue.len(), 3);
+    }
+
+    #[test]
+    fn test_queue_get() {
+        let queue = get_queue();
+
+        let t = queue.get();
+        assert!(t.is_some());
+    }
+
+    #[test]
+    fn test_queue_rotate() {
+        let queue = get_queue();
+
+        queue.rotate(1);
+
+        if let Some(t) = queue.get() {
+            assert_eq!(t.title, "Track 3");
+        }
+    }
+
+    #[test]
+    fn test_queue_remove() {
+        let mut queue = get_queue();
+
+        let t = queue.delete(0);
+        assert!(t.is_some());
+
+        if let Some(t) = queue.get() {
+            assert_eq!(t.title, "Track 2");
+        }
+    }
+
+    #[test]
+    fn test_queue_next() {
+        let queue = get_queue();
+
+        // Rotate left 1
+        queue.lrotate(1);
+
+        let track = queue.get();
+        assert!(track.is_some());
+
+        let track = track.unwrap();
+        assert_eq!(track.title, "Track 2");
+    }
+
+    #[test]
+    fn test_queue_previous() {
+        let queue = get_queue();
+
+        // Rotate right 1
+        queue.rotate(1);
+
+        let track = queue.get();
+        assert!(track.is_some());
+
+        let track = track.unwrap();
+        assert_eq!(track.title, "Track 3");
+    }
+
+    #[test]
+    fn test_queue_next_large() {
+        let queue = get_queue();
+
+        // Rotate left 1
+        queue.lrotate(11);
+
+        let track = queue.get();
+        assert!(track.is_some());
+
+        let track = track.unwrap();
+        assert_eq!(track.title, "Track 3");
+    }
+
+    #[test]
+    fn test_queue_previous_large() {
+        let queue = get_queue();
+
+        // Rotate right 1
+        queue.rotate(11);
+
+        let track = queue.get();
+        assert!(track.is_some());
+
+        let track = track.unwrap();
+        assert_eq!(track.title, "Track 2");
     }
 }

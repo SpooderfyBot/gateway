@@ -38,7 +38,7 @@ async fn next_track<'a>(
 
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
-        let maybe_track = room.player.previous_track().await;
+        let maybe_track = room.player.next_track().await;
 
         let track = match maybe_track {
             Some(t) => t,
