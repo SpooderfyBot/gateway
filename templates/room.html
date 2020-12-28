@@ -325,6 +325,7 @@
 
     gateway.onmessage = function (event) {
         let data = JSON.parse(event.data);
+        console.debug(data);
 
         switch (data.op) {
             // Automatically respond to pings, this is so we can add sync
