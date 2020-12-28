@@ -70,9 +70,9 @@ async fn run_warp(rooms: Rooms) {
             ))
         });
 
-    let server: SocketAddr = "127.0.0.1:8080"
+    let server: SocketAddr = "0.0.0.0:8080"
         .parse()
         .expect("Unable to parse socket address");
-
+    
     warp::serve(gateway).run(server).await;
 }
