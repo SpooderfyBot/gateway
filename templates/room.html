@@ -306,11 +306,12 @@
     const API_ROOM_URL = `${API_URL}/room/${ROOM_ID}`
     const API_PLAYER_URL = `${API_URL}/player/${ROOM_ID}`
 
-    const OP_PLAY = 0
-    const OP_PAUSE = 1
-    const OP_SEEK = 2
-    const OP_NEXT = 3
-    const OP_MESSAGE = 5
+    const OP_PLAY = 0;
+    const OP_PAUSE = 1;
+    const OP_SEEK = 2;
+    const OP_NEXT = 3;
+    const OP_MESSAGE = 5;
+    const OP_PING = 202;
 
     let gateway = new WebSocket(`${WS_URL}?id=${ROOM_ID}`);
 
@@ -326,6 +327,14 @@
         let data = JSON.parse(event.data);
 
         switch (data.op) {
+            // Automatically respond to pings, this is so we can add sync
+            // systems later on when I get around to it.
+            case OP_PING:
+                let msg = {
+                    op: OP_PING
+                }
+                gateway.send(JSON.stringify(msg))
+                break;
             case OP_PLAY:
                 if (VideoControls.videoSrcUrl === '') {
                     return
@@ -342,14 +351,14 @@
                 if (VideoControls.videoSrcUrl === '') {
                     return
                 }
-                VideoControls.skipTo(data.position)
+                VideoControls.skipTo(data.payload.position)
                 break;
             case OP_NEXT:
-                VideoControls.setVideo(data.track);
+                VideoControls.setVideo(data.payload);
                 setTimeout(VideoControls.reloadVideo, 500);
                 break;
             case OP_MESSAGE:
-                roomChat.addMessage(data)
+                roomChat.addMessage(data.payload)
                 break;
         }
     }
