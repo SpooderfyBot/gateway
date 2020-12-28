@@ -145,7 +145,7 @@ fn queue_empty() -> Response<'static> {
     let resp = PlayerResponse {
         message: "Queue empty".to_string(),
     };
-    responses::json_response(Status::NoContent, &resp).unwrap()
+    responses::json_response(Status::Ok, &resp).unwrap()
 }
 
 fn ok() -> Response<'static> {
