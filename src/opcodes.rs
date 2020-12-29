@@ -6,4 +6,4 @@ pub const OP_SEEK: usize = 2;
 pub const OP_NEXT: usize = 3;
 pub const OP_PREV: usize = 4;
 pub const OP_MESSAGE: usize = 5;
-pub const OP_PING: usize = 202;
+pub const OP_TIME_CHECK: usize = 5;

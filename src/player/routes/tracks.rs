@@ -101,7 +101,13 @@ async fn previous_track<'a>(
 }
 
 #[post("/<room_id>/track/add", data="<track>")]
-async fn add_track(room_id: String, track: Json<Track>, rooms: State<'_, Rooms>) -> Response<'_> {
+async fn add_track<'a>(
+    room_id: String,
+    track: Json<Track>,
+    rooms: State<'_, Rooms>,
+    sessions: State<'_, Sessions>,
+    cookies: &'a CookieJar<'_>
+) -> Response<'a> {
     let lock = rooms.read().await;
     let maybe_room = lock.get(&room_id);
 
@@ -110,13 +116,29 @@ async fn add_track(room_id: String, track: Json<Track>, rooms: State<'_, Rooms>)
         Some(r) => r,
     };
 
-    room.player.add_track(track.into_inner()).await;
+    let crumb = match cookies.get("session") {
+        Some(c) => c,
+        None => return unauthorized()
+    };
 
-    ok()
+    let session_id = crumb.value();
+    if let Some(_) = sessions.get_user_by_session(session_id).await {
+        room.player.add_track(track.into_inner()).await;
+
+        ok()
+    } else {
+        unauthorized()
+    }
 }
 
 #[delete("/<room_id>/track/remove?<index>")]
-async fn remove_track(room_id: String, index: usize, rooms: State<'_, Rooms>) -> Response<'_> {
+async fn remove_track<'a>(
+    room_id: String,
+    index: usize,
+    rooms: State<'_, Rooms>,
+    sessions: State<'_, Sessions>,
+    cookies: &'a CookieJar<'_>
+) -> Response<'a> {
     let lock = rooms.read().await;
     let maybe_room = lock.get(&room_id);
 
@@ -125,9 +147,19 @@ async fn remove_track(room_id: String, index: usize, rooms: State<'_, Rooms>) ->
         Some(r) => r,
     };
 
-    let _ = room.player.remove_track(index).await;
+    let crumb = match cookies.get("session") {
+        Some(c) => c,
+        None => return unauthorized()
+    };
 
-    ok()
+    let session_id = crumb.value();
+    if let Some(_) = sessions.get_user_by_session(session_id).await {
+        let _ = room.player.remove_track(index).await;
+
+        ok()
+    } else {
+        unauthorized()
+    }
 }
 
 pub fn get_routes() -> Vec<Route> {
@@ -154,6 +186,7 @@ fn ok() -> Response<'static> {
     };
     responses::json_response(Status::Ok, &resp).unwrap()
 }
+
 fn unauthorized() -> Response<'static> {
     let resp = PlayerResponse {
         message: "Unauthorized Request".to_string(),

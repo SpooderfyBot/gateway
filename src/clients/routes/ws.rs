@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::error;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering::Relaxed;
 
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
-use serde_json;
+use serde::Serialize;
 
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -14,10 +15,7 @@ use futures::{SinkExt, StreamExt};
 
 use warp::filters::ws::{Message, WebSocket};
 
-use crate::opcodes;
 use crate::Rooms;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering::Relaxed;
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -44,10 +42,6 @@ struct PingPayload {
     op: usize,
 }
 
-#[derive(Deserialize)]
-struct IncomingPayload {
-    op: usize,
-}
 
 async fn handle_connection(
     ws: WebSocket,
@@ -91,12 +85,7 @@ async fn handle_connection(
             Err(_) => break,
         };
 
-        let resp: IncomingPayload = match serde_json::from_slice(msg.as_bytes()) {
-            Err(_) => break,
-            Ok(r) => r,
-        };
-
-        if resp.op != opcodes::OP_PING {
+        if !msg.is_pong() {
             break;
         }
     }
@@ -111,13 +100,8 @@ async fn handle_connection(
 }
 
 async fn poll_client(client: UnboundedSender<Message>) {
-    let payload = serde_json::to_string(&PingPayload {
-        op: opcodes::OP_PING,
-    })
-    .unwrap();
-
     loop {
-        if let Err(_) = client.send(Message::text(&payload)) {
+        if let Err(_) = client.send(Message::ping(Vec::new())) {
             return;
         }
         delay_for(Duration::from_secs(5)).await;
