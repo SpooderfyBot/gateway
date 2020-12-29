@@ -103,7 +103,7 @@
 
 <div class="w-full flex justify-around">
     <div class="w-2/3 p-8">
-        <div class="bg-discord-dark bg-discord-dark rounded-lg">
+        <div class="bg-discord-dark bg-discord-dark rounded-lg pb-4">
             <div id="video-handler">
                 <h1 v-if="videoSrcUrl != ''" class="text-white text-4xl font-bold text-center w-full">{{ videoTitle }}</h1>
                 <div class="video-container self-center w-full px-4 flex justify-center">
@@ -311,7 +311,6 @@
     const OP_SEEK = 2;
     const OP_NEXT = 3;
     const OP_MESSAGE = 5;
-    const OP_PING = 202;
 
     let gateway = new WebSocket(`${WS_URL}?id=${ROOM_ID}`);
 
@@ -328,14 +327,6 @@
         console.debug(data);
 
         switch (data.op) {
-            // Automatically respond to pings, this is so we can add sync
-            // systems later on when I get around to it.
-            case OP_PING:
-                let msg = {
-                    op: OP_PING
-                }
-                gateway.send(JSON.stringify(msg))
-                break;
             case OP_PLAY:
                 if (VideoControls.videoSrcUrl === '') {
                     return
