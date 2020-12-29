@@ -3,11 +3,12 @@ use rocket::tokio::io;
 use rocket::{Route, State};
 use rocket::http::Status;
 
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use crate::utils::responses;
 use crate::rooms::room;
 use crate::Rooms;
+use crate::json::Json;
 
 
 #[derive(Serialize)]
@@ -21,9 +22,16 @@ struct RoomData {
     id: String,
 }
 
-#[post("/<room>/create")]
+#[derive(Deserialize)]
+struct RoomInfo {
+    webhook: String,
+}
+
+
+#[post("/<room>/create", data="<room_info>")]
 async fn create_room(
     room: String,
+    room_info: Json<RoomInfo>,
     rooms: State<'_, Rooms>
 ) -> Result<rocket::Response<'_>, Debug<io::Error>> {
 
@@ -40,7 +48,8 @@ async fn create_room(
         };
         responses::json_response(Status::NotAcceptable, &resp)
     } else {
-        _create_room(room.clone(), rooms).await;
+        let inner = room_info.into_inner();
+        _create_room(room.clone(), inner.webhook, rooms).await;
         let resp = RoomResponse {
             message: format!("Room made with id: {}", &room),
             data: Some(RoomData { id: room }),
@@ -85,8 +94,8 @@ pub fn get_routes() -> Vec<Route> {
     routes![create_room, delete_room]
 }
 
-async fn _create_room(id: String, rooms: State<'_, Rooms>) {
-    let new_room = room::Room::new();
+async fn _create_room(id: String, url: String, rooms: State<'_, Rooms>) {
+    let new_room = room::Room::new(url);
     let mut lock = rooms.write().await;
     lock.insert(id, new_room);
 }

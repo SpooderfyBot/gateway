@@ -1,12 +1,11 @@
 use rocket::{Route, State, Response};
 use rocket::http::{Status, CookieJar};
-
+use tokio::time::{delay_for, Duration};
 use serde::Serialize;
 
 use crate::{Rooms, opcodes};
 use crate::clients::{Sessions, Event};
 use crate::utils::responses;
-use tokio::time::{delay_for, Duration};
 
 
 #[derive(Serialize)]

@@ -1,16 +1,17 @@
 use hashbrown::hash_map::HashMap;
 use serde::{Serialize, Deserialize};
+use std::sync::Arc;
 
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::RwLock;
 use warp::ws::Message;
-
 
 pub mod routes;
 
 pub type ClientMap = RwLock<HashMap<usize, UnboundedSender<Message>>>;
 pub type ClientInfo = RwLock<HashMap<usize, User>>;
 pub type SessionsMap = RwLock<HashMap<String, usize>>;
+
 
 #[derive(Serialize)]
 pub struct Event<T> where T: Serialize {

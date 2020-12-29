@@ -20,6 +20,7 @@ mod opcodes;
 mod security;
 mod html;
 mod messenger;
+pub mod webhook;
 
 
 pub type Rooms = Arc<RwLock<HashMap<String, rooms::room::Room>>>;
