@@ -348,6 +348,7 @@
             case OP_NEXT:
                 VideoControls.setVideo(data.payload);
                 setTimeout(VideoControls.reloadVideo, 500);
+                VideoControls.video.load();
                 break;
             case OP_MESSAGE:
                 roomChat.addMessage(data.payload)
