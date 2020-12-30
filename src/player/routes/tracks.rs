@@ -8,7 +8,9 @@ use crate::utils::responses;
 use crate::json::Json;
 use crate::player::player::Track;
 use crate::clients::{Sessions, Event};
-
+use crate::webhook::Message;
+use crate::SPOODERFY_LOGO;
+use crate::rooms::room::Room;
 
 #[derive(Serialize)]
 struct PlayerResponse {
@@ -38,6 +40,11 @@ async fn next_track<'a>(
 
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
+        send_system_webhook(&room,format!(
+            "\\🚀 [**Moving to next video**](https://spooderfy.com/room/{})",
+            room_id
+        )).await;
+
         let maybe_track = room.player.next_track().await;
 
         let track = match maybe_track {
@@ -80,6 +87,11 @@ async fn previous_track<'a>(
 
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
+        send_system_webhook(&room, format!(
+            "\\🚀 [**Moving to previous video**](https://spooderfy.com/room/{})",
+            room_id
+        )).await;
+
         let maybe_track = room.player.previous_track().await;
 
         let track = match maybe_track {
@@ -123,8 +135,14 @@ async fn add_track<'a>(
 
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
-        room.player.add_track(track.into_inner()).await;
+        let track = track.into_inner();
+        send_system_webhook(&room,format!(
+            "\\🚀 [**Added video `{}`**](https://spooderfy.com/room/{})",
+            &track.title,
+            room_id
+        )).await;
 
+        room.player.add_track(track).await;
         ok()
     } else {
         unauthorized()
@@ -154,6 +172,11 @@ async fn remove_track<'a>(
 
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
+        send_system_webhook(&room, format!(
+            "\\🚀 [**Removed track at index `{}`**](https://spooderfy.com/room/{})",
+            index,
+            room_id
+        )).await;
         let _ = room.player.remove_track(index).await;
 
         ok()
@@ -164,6 +187,22 @@ async fn remove_track<'a>(
 
 pub fn get_routes() -> Vec<Route> {
     routes![next_track, previous_track, add_track, remove_track]
+}
+
+async fn send_system_webhook(room: &Room, msg: String) {
+    let msg = Message {
+        icon_url: SPOODERFY_LOGO.to_string(),
+        description: msg,
+        color: 0x0AF0E8
+    };
+    match room.webhook.send(msg).await {
+        Ok(is_ok) => {
+            if !is_ok {
+                eprintln!("Webhook responded with non 2xx or 3xx code");
+            }
+        },
+        Err(e) => eprintln!("{:?}", e)
+    };
 }
 
 fn not_found() -> Response<'static> {

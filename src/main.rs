@@ -20,8 +20,9 @@ mod opcodes;
 mod security;
 mod html;
 mod messenger;
-pub mod webhook;
+mod webhook;
 
+pub static SPOODERFY_LOGO: &str = "https://cdn.discordapp.com/avatars/585225058683977750/73628acbb1304b05c718f22a380767bd.png?size=128";
 
 pub type Rooms = Arc<RwLock<HashMap<String, rooms::room::Room>>>;
 

@@ -76,8 +76,8 @@ impl MediaPlayer {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Track {
-    title: String,
-    url: String,
+    pub title: String,
+    pub url: String,
 }
 
 

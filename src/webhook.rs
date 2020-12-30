@@ -2,9 +2,15 @@ use serde::Serialize;
 
 #[derive(Serialize)]
 pub struct Message {
-    username: String,
-    avatar_url: String,
-    content: String,
+    pub icon_url: String,
+    pub description: String,
+    pub color: usize,
+}
+
+#[derive(Serialize)]
+pub struct Wrapper<T> where T: Serialize {
+    embeds: Vec<Message>,
+    content: T
 }
 
 pub struct Webhook {
@@ -21,9 +27,15 @@ impl Webhook {
     }
 
     pub async fn send(&self, payload: Message) -> Result<bool, reqwest::Error> {
+        let embeds = Vec::from([payload]);
+        let wrapped = Wrapper {
+            embeds,
+            content: ()
+        };
+
         let res = self.client
             .post(&self.url)
-            .json(&payload)
+            .json(&wrapped)
             .send()
             .await?;
 

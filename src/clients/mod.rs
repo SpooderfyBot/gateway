@@ -1,6 +1,5 @@
 use hashbrown::hash_map::HashMap;
 use serde::{Serialize, Deserialize};
-use std::sync::Arc;
 
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::RwLock;
