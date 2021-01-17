@@ -1,3 +1,5 @@
+use std::env;
+
 use hashbrown::hash_map::HashMap;
 use serde::{Serialize, Deserialize};
 
@@ -10,6 +12,21 @@ pub mod routes;
 pub type ClientMap = RwLock<HashMap<usize, UnboundedSender<Message>>>;
 pub type ClientInfo = RwLock<HashMap<usize, User>>;
 pub type SessionsMap = RwLock<HashMap<String, usize>>;
+
+
+lazy_static! {
+    static ref SECRET_KEY: String = {
+        env::var("SECRET_KEY").unwrap()
+    };
+
+    static ref BOT_USER: User = {
+        User {
+            id: 585225058683977750,
+            name: "Spooderfy".to_string(),
+            avatar_url: "https://cdn.discordapp.com/avatars/585225058683977750/73628acbb1304b05c718f22a380767bd.png?size=512".to_string()
+        }
+    };
+}
 
 
 #[derive(Serialize)]
@@ -114,6 +131,10 @@ impl Sessions {
     }
 
     pub async fn get_user_by_session(&self, sess: &str) -> Option<User> {
+        if SECRET_KEY.as_str() == sess {
+            return Some(BOT_USER.clone())
+        }
+
         let id = {
             let lock = self.sessions.read().await;
             let id = match lock.get(sess) {
