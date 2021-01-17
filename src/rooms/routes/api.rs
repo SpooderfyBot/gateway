@@ -60,6 +60,7 @@ async fn create_room(
     Ok(resp.unwrap())
 }
 
+
 #[delete("/<room>/delete")]
 async fn delete_room(
     room: String,
