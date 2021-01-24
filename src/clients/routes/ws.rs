@@ -16,6 +16,8 @@ use futures::{SinkExt, StreamExt};
 use warp::filters::ws::{Message, WebSocket};
 
 use crate::Rooms;
+use crate::webhook;
+use crate::SPOODERFY_LOGO;
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
 
@@ -67,6 +69,12 @@ async fn handle_connection(
             maybe_room.unwrap()
         };
 
+        room.webhook.send(webhook::Message{
+            icon_url: SPOODERFY_LOGO.to_string(),
+            description: format!("A user has joined the room!"),
+            color: 0x0DEDE8
+        }).await?;
+
         let (tx, rx) = mpsc::unbounded_channel();
 
         room.clients.add_client(id, tx.clone()).await;
@@ -95,6 +103,11 @@ async fn handle_connection(
     let lock = rooms.read().await;
     let room = lock.get(&room_id).unwrap();
     room.clients.remove_client(id).await;
+    room.webhook.send(webhook::Message{
+        icon_url: SPOODERFY_LOGO.to_string(),
+        description: format!("A user has left the room!"),
+        color: 0x0DEDE8
+    }).await?;
 
     Ok(())
 }

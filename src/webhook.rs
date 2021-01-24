@@ -13,6 +13,14 @@ pub struct Wrapper<T> where T: Serialize {
     content: T
 }
 
+#[derive(Serialize)]
+struct UserMessage {
+    content: String,
+    embeds: (),
+    username: String,
+    avatar_url: String,
+}
+
 pub struct Webhook {
     client: reqwest::Client,
     url: String,
@@ -36,6 +44,28 @@ impl Webhook {
         let res = self.client
             .post(&self.url)
             .json(&wrapped)
+            .send()
+            .await?;
+
+        Ok(res.status().as_u16() < 400)
+    }
+
+    pub async fn send_as_user(
+        &self,
+        username: String,
+        user_icon: String,
+        message: String,
+    ) -> Result<bool, reqwest::Error> {
+        let msg = UserMessage {
+            content: message,
+            embeds: (),
+            username,
+            avatar_url: user_icon
+        };
+
+        let res = self.client
+            .post(&self.url)
+            .json(&msg)
             .send()
             .await?;
 
