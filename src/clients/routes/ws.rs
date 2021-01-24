@@ -69,10 +69,11 @@ async fn handle_connection(
             maybe_room.unwrap()
         };
 
-        room.webhook.send(webhook::Message{
-            icon_url: SPOODERFY_LOGO.to_string(),
-            description: format!("A user has joined the room!"),
-            color: 0x0DEDE8
+        room.webhook.send(webhook::UserMessage{
+            avatar_url: SPOODERFY_LOGO.to_string(),
+            content: format!("\\👋 **A user has joined the room!**"),
+            embeds: (),
+            username: "Spooderfy".to_string()
         }).await?;
 
         let (tx, rx) = mpsc::unbounded_channel();
@@ -103,10 +104,12 @@ async fn handle_connection(
     let lock = rooms.read().await;
     let room = lock.get(&room_id).unwrap();
     room.clients.remove_client(id).await;
-    room.webhook.send(webhook::Message{
-        icon_url: SPOODERFY_LOGO.to_string(),
-        description: format!("A user has left the room!"),
-        color: 0x0DEDE8
+
+    room.webhook.send(webhook::UserMessage{
+        avatar_url: SPOODERFY_LOGO.to_string(),
+        content: format!("\\👋 **A user has joined the room!**"),
+        embeds: (),
+        username: "Spooderfy".to_string()
     }).await?;
 
     Ok(())

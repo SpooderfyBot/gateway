@@ -8,7 +8,7 @@ use crate::utils::responses;
 use crate::json::Json;
 use crate::player::player::Track;
 use crate::clients::{Sessions, Event};
-use crate::webhook::Message;
+use crate::webhook::UserMessage;
 use crate::SPOODERFY_LOGO;
 use crate::rooms::room::Room;
 
@@ -190,10 +190,11 @@ pub fn get_routes() -> Vec<Route> {
 }
 
 async fn send_system_webhook(room: &Room, msg: String) {
-    let msg = Message {
-        icon_url: SPOODERFY_LOGO.to_string(),
-        description: msg,
-        color: 0x0AF0E8
+    let msg = UserMessage {
+        content: msg,
+        embeds: (),
+        username: "Spooderfy".to_string(),
+        avatar_url: SPOODERFY_LOGO.to_string()
     };
     match room.webhook.send(msg).await {
         Ok(is_ok) => {
