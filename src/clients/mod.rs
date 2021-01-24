@@ -115,12 +115,12 @@ impl Sessions {
         }
     }
 
-    pub async fn remove_user(&self, id: usize) {
+    pub async fn _remove_user(&self, id: usize) {
         let mut lock = self.clients.write().await;
         lock.remove(&id);
     }
 
-    pub async fn get_user_by_id(&self, id: usize) -> Option<User> {
+    pub async fn _get_user_by_id(&self, id: usize) -> Option<User> {
         let lock = self.clients.read().await;
         let val = lock.get(&id);
         return if val.is_some() {

@@ -6,6 +6,7 @@ use std::error::Error;
 use rocket::Response;
 use rocket::http::Status;
 use rocket::http::ContentType;
+use rocket::response::Redirect;
 
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
@@ -41,6 +42,15 @@ pub fn plaintext_response(status: Status, body: &str) -> Result<Response, Box<dy
     resp.set_header(ContentType::Plain);
     resp.set_status(status);
     resp.set_sized_body(body.len(), Cursor::new(body));
+
+    Ok(resp)
+}
+
+/// Returns a `rocket::Response` with the headers set to use `ContentType::Plain`
+pub fn redirect_to(url: String) -> Result<Response<'static>, Box<dyn Error>> {
+    let mut resp = Response::new();
+    resp.set_raw_header("Location", url);
+    resp.set_status(Status::SeeOther);
 
     Ok(resp)
 }

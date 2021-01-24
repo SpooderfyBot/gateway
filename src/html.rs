@@ -35,14 +35,14 @@ async fn get_room_html<'a>(
 
     let crumb = match cookies.get("session") {
         Some(c) => c,
-        None => return unauthorized()
+        None => return unauthorized(&room_id)
     };
 
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
         ok()
     } else {
-        unauthorized()
+        unauthorized(&room_id)
     }
 }
 
@@ -63,11 +63,13 @@ fn not_found() -> Response<'static> {
     responses::json_response(Status::NotFound, &resp).unwrap()
 }
 
-fn unauthorized() -> Response<'static> {
-    let resp = PlayerResponse {
-        message: "Unauthorized Request".to_string(),
-    };
-    responses::json_response(Status::Unauthorized, &resp).unwrap()
+fn unauthorized(room_id: &str) -> Response<'static> {
+    let login = format!(
+        "https://spooderfy.com/login?redirect_to=/room/{}",
+        room_id,
+    );
+
+    responses::redirect_to(login).unwrap()
 }
 
 pub fn get_routes() -> Vec<Route> {
