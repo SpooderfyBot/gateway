@@ -1,7 +1,6 @@
-mod emitters;
-mod rooms;
+#[macro_use]
+extern crate lazy_static;
 
-// #![deny(warnings)]
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::error;
@@ -13,8 +12,10 @@ use warp::Filter;
 use chrono::Utc;
 use serde::{Serialize, Deserialize};
 
-use crate::rooms::room::Room;
+mod emitters;
+mod rooms;
 
+use crate::rooms::room::Room;
 
 /// Our state of currently connected users known as the rooms.
 ///
