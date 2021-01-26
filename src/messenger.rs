@@ -52,14 +52,6 @@ async fn send_message_bot<'a>(
     let session_id = crumb.value();
     if let Some(_) = sessions.get_user_by_session(session_id).await {
         let message = message.into_inner();
-        if let Err(e) = room.webhook.send_as_user(
-          message.username.clone(),
-          message.avatar.clone(),
-          message.content.clone(),
-        ).await {
-            eprintln!("Error: {:?}", e);
-        };
-
         let data = Event {
             op: opcodes::OP_MESSAGE,
             payload: message,
