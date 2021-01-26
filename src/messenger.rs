@@ -9,7 +9,7 @@ use crate::utils::responses;
 use crate::json::Json;
 
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 struct MessageResp {
     content: String,
     user_id: usize,
@@ -30,6 +30,52 @@ struct MessengerResponse {
 
 #[put("/<room_id>/message", data="<message>")]
 async fn send_message<'a>(
+    room_id: String,
+    message: Json<MessageResp>,
+    rooms: State<'_, Rooms>,
+    sessions: State<'_, Sessions>,
+    cookies: &'a CookieJar<'_>
+) -> Response<'a> {
+    let lock = rooms.read().await;
+    let maybe_room = lock.get(&room_id);
+
+    let room = match maybe_room {
+        None => return not_found(),
+        Some(r) => r,
+    };
+
+    let crumb = match cookies.get("session") {
+        Some(c) => c,
+        None => return unauthorized()
+    };
+
+    let session_id = crumb.value();
+    if let Some(_) = sessions.get_user_by_session(session_id).await {
+        let message = message.into_inner();
+        if let Err(e) = room.webhook.send_as_user(
+          message.username.clone(),
+          message.avatar.clone(),
+          message.content.clone(),
+        ).await {
+            eprintln!("Error: {:?}", e);
+        };
+
+        let data = Event {
+            op: opcodes::OP_MESSAGE,
+            payload: message,
+        };
+
+        room.clients.emit(data).await;
+
+        ok()
+    } else {
+        unauthorized()
+    }
+}
+
+
+#[put("/<room_id>/botmsg", data="<message>")]
+async fn bot_message<'a>(
     room_id: String,
     message: Json<Message>,
     rooms: State<'_, Rooms>,
@@ -77,6 +123,7 @@ async fn send_message<'a>(
         unauthorized()
     }
 }
+
 
 pub fn get_routes() -> Vec<Route> {
     routes![send_message]
