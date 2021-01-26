@@ -28,8 +28,8 @@ struct MessengerResponse {
 }
 
 
-#[put("/<room_id>/message", data="<message>")]
-async fn send_message<'a>(
+#[put("/<room_id>/botmsg", data="<message>")]
+async fn send_message_bot<'a>(
     room_id: String,
     message: Json<MessageResp>,
     rooms: State<'_, Rooms>,
@@ -74,8 +74,8 @@ async fn send_message<'a>(
 }
 
 
-#[put("/<room_id>/botmsg", data="<message>")]
-async fn bot_message<'a>(
+#[put("/<room_id>/message", data="<message>")]
+async fn send_message<'a>(
     room_id: String,
     message: Json<Message>,
     rooms: State<'_, Rooms>,
