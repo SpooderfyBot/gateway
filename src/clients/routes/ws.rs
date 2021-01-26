@@ -107,7 +107,7 @@ async fn handle_connection(
 
     room.webhook.send(webhook::UserMessage{
         avatar_url: SPOODERFY_LOGO.to_string(),
-        content: format!("\\👋 **A user has joined the room!**"),
+        content: format!("\\👋 **A user has left the room!**"),
         embeds: (),
         username: "Spooderfy".to_string()
     }).await?;
