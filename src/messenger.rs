@@ -126,7 +126,7 @@ async fn bot_message<'a>(
 
 
 pub fn get_routes() -> Vec<Route> {
-    routes![send_message]
+    routes![send_message, bot_message]
 }
 
 
