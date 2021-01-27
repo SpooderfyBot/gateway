@@ -727,7 +727,7 @@
                 },
 
                 reloadVideo: function () {
-                    this.firstStart = true;
+                    isFirstPlay = true;
 
                     this.video = document.getElementById('video');
                     this.videoControls = document.getElementById('video-controls');
@@ -805,6 +805,29 @@
             if (videoWorks) {
                 this.video.controls = false
             }
+
+            let xhttp = new XMLHttpRequest();
+            let payload = JSON.stringify({
+                content: msg,
+            })
+            xhttp.onload = function (e) {
+                if (xhttp.readyState === 4) {
+                    if (xhttp.status === 200) {
+                        let payload = JSON.parse(xhttp.responseText);
+                        if (payload.status === 1) {
+                            VideoControls.setVideo(payload.track);
+                            setTimeout(VideoControls.reloadVideo, 500);
+                            VideoControls.video.load();
+                        }
+                    } else {
+                      console.error(xhttp.statusText);
+                    }
+                  }
+                };
+
+            xhttp.open("GET", `${API_PLAYER_URL}/track/current`, true);
+            xhttp.send(payload);
+
         },
     })
 </script>
