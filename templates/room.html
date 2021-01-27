@@ -423,18 +423,6 @@
                     content: msg,
                 })
 
-                xhttp.onload = function (e) {
-                  if (xhttp.readyState === 4) {
-                    if (xhttp.status === 200) {
-                      let payload = JSON.parse(xhttp.responseText);
-                      VideoControls.video.play();
-                      VideoControls.skipTo(payload.time)
-                    } else {
-                      console.error(xhttp.statusText);
-                    }
-                  }
-                };
-
                 xhttp.open("PUT", `${API_ROOM_URL}/message`, true);
                 xhttp.send(payload);
             },
@@ -456,6 +444,7 @@
             videoSrcUrl: "",
             ownerName: "ChillFish8's Video",
             isSaved: false,
+            videoIsRendered: false,
 
             video: document.getElementById('video'),
             videoControls: document.getElementById('video-controls'),
@@ -501,8 +490,27 @@
                 },
 
                 onManualPauseBegin: function () {
-                    this.video.play();
-                    isFirstPlay = false;
+                    if (!this.videoIsRendered) {
+                        return;
+                    }
+
+                    let xhttp = new XMLHttpRequest();
+
+                    xhttp.onload = function (e) {
+                      if (xhttp.readyState === 4) {
+                        if (xhttp.status === 200) {
+                          let payload = JSON.parse(xhttp.responseText);
+                          VideoControls.video.play();
+                          VideoControls.skipTo(payload.time);
+                          isFirstPlay = false;
+                        } else {
+                          console.error(xhttp.statusText);
+                        }
+                      }
+                    };
+
+                    xhttp.open("GET", `${API_PLAYER_URL}/time`, true);
+                    xhttp.send(null);
                 },
 
                 putPlay: function () {
@@ -807,9 +815,6 @@
             }
 
             let xhttp = new XMLHttpRequest();
-            let payload = JSON.stringify({
-                content: msg,
-            })
             xhttp.onload = function (e) {
                 if (xhttp.readyState === 4) {
                     if (xhttp.status === 200) {
@@ -818,15 +823,16 @@
                             VideoControls.setVideo(payload.track);
                             setTimeout(VideoControls.reloadVideo, 500);
                             VideoControls.video.load();
+                            VideoControls.videoIsRendered = true;
                         }
                     } else {
                       console.error(xhttp.statusText);
                     }
-                  }
-                };
+                }
+            };
 
             xhttp.open("GET", `${API_PLAYER_URL}/track/current`, true);
-            xhttp.send(payload);
+            xhttp.send(null);
 
         },
     })
