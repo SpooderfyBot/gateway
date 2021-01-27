@@ -566,7 +566,12 @@
                     const videoDuration = Math.round(this.video.duration);
                     this.seek.setAttribute('max', videoDuration);
                     this.progressBar.setAttribute('max', videoDuration);
-                    const time = this.formatTime(videoDuration);
+                    let time;
+                    try {
+                        time = this.formatTime(videoDuration);
+                    } catch {
+                        return
+                    }
                     this.duration.innerText = `${time.minutes}:${time.seconds}`;
                     this.duration.setAttribute('datetime', `${time.minutes}m ${time.seconds}s`)
                 },

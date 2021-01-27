@@ -27,7 +27,7 @@ struct PlayerCurrentTrack {
 
 
 
-#[put("/<room_id>/track/current")]
+#[get("/<room_id>/track/current")]
 async fn get_current_track<'a>(
     room_id: String,
     rooms: State<'_, Rooms>,
