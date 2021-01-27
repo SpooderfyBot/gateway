@@ -311,6 +311,7 @@
     const OP_SEEK = 2;
     const OP_NEXT = 3;
     const OP_MESSAGE = 5;
+    const OP_TIME_CHECK = 6;
 
     let gateway = new WebSocket(`${WS_URL}?id=${ROOM_ID}`);
 
@@ -352,6 +353,12 @@
                 break;
             case OP_MESSAGE:
                 roomChat.addMessage(data.payload)
+                break;
+            case OP_TIME_CHECK:
+                let time = Math.round(VideoControls.video.currentTime);
+                let xhttp = new XMLHttpRequest();
+                xhttp.open("POST", `${API_PLAYER_URL}/time?time=${time}`, true);
+                xhttp.send(null);
                 break;
         }
     }
