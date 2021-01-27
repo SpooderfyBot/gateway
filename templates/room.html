@@ -313,6 +313,9 @@
     const OP_MESSAGE = 5;
     const OP_TIME_CHECK = 6;
 
+    let isFirstPlay = true;
+
+
     let gateway = new WebSocket(`${WS_URL}?id=${ROOM_ID}`);
 
     gateway.onopen = function () {
@@ -330,20 +333,35 @@
         switch (data.op) {
             case OP_PLAY:
                 if (VideoControls.videoSrcUrl === '') {
-                    return
+                    return;
                 }
+
+                if (isFirstPlay) {
+                    return;
+                }
+
                 VideoControls.video.play();
                 break;
             case OP_PAUSE:
                 if (VideoControls.videoSrcUrl === '') {
                     return
                 }
+
+                 if (isFirstPlay) {
+                    return;
+                }
+
                 VideoControls.video.pause();
                 break;
             case OP_SEEK:
                 if (VideoControls.videoSrcUrl === '') {
                     return
                 }
+
+                 if (isFirstPlay) {
+                    return;
+                }
+
                 VideoControls.skipTo(data.payload.position)
                 break;
             case OP_NEXT:
@@ -355,6 +373,10 @@
                 roomChat.addMessage(data.payload)
                 break;
             case OP_TIME_CHECK:
+                if (isFirstPlay) {
+                    break;
+                }
+
                 let time = Math.round(VideoControls.video.currentTime);
                 let xhttp = new XMLHttpRequest();
                 xhttp.open("POST", `${API_PLAYER_URL}/time?time=${time}`, true);
@@ -400,6 +422,19 @@
                 let payload = JSON.stringify({
                     content: msg,
                 })
+
+                xhttp.onload = function (e) {
+                  if (xhttp.readyState === 4) {
+                    if (xhttp.status === 200) {
+                      let payload = JSON.parse(xhttp.responseText);
+                      VideoControls.video.play();
+                      VideoControls.skipTo(payload.time)
+                    } else {
+                      console.error(xhttp.statusText);
+                    }
+                  }
+                };
+
                 xhttp.open("PUT", `${API_ROOM_URL}/message`, true);
                 xhttp.send(payload);
             },
@@ -421,7 +456,6 @@
             videoSrcUrl: "",
             ownerName: "ChillFish8's Video",
             isSaved: false,
-            firstStart: true,
 
             video: document.getElementById('video'),
             videoControls: document.getElementById('video-controls'),
@@ -466,10 +500,14 @@
 
                 },
 
+                onManualPauseBegin: function () {
+                    this.video.play();
+                    isFirstPlay = false;
+                },
+
                 putPlay: function () {
-                    if (this.firstStart) {
-                        this.video.play();
-                        this.firstStart = false;
+                    if (isFirstPlay) {
+                        this.onManualPauseBegin();
                     }
 
                     let xhttp = new XMLHttpRequest();
