@@ -45,6 +45,17 @@ impl MediaPlayer {
         res
     }
 
+    /// Gets the current track on the player.
+    pub async fn current_track(&self) -> Option<Track> {
+        let lock = self.tracks.read().await;
+        let res = match lock.get() {
+            None => None,
+            Some(v) => Some(v.clone()),
+        };
+
+        res
+    }
+
     /// Gets the previous track in the queue and rotates the queue by -1, this
     /// will return either None (No tracks left) or a Track struct, this is O(1)
     /// and will never panic because it's just a simple increment.

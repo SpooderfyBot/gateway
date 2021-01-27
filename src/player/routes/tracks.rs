@@ -12,9 +12,55 @@ use crate::webhook::UserMessage;
 use crate::SPOODERFY_LOGO;
 use crate::rooms::room::Room;
 
+
 #[derive(Serialize)]
 struct PlayerResponse {
     message: String,
+}
+
+#[derive(Serialize)]
+struct PlayerCurrentTrack {
+    status: usize,
+    message: String,
+    track: Option<Track>,
+}
+
+
+
+#[put("/<room_id>/track/current")]
+async fn get_current_track<'a>(
+    room_id: String,
+    rooms: State<'_, Rooms>,
+    sessions: State<'_, Sessions>,
+    cookies: &'a CookieJar<'_>
+) -> Response<'a> {
+    let lock = rooms.read().await;
+    let maybe_room = lock.get(&room_id);
+
+    let room = match maybe_room {
+        None => return not_found(),
+        Some(r) => r,
+    };
+
+    let crumb = match cookies.get("session") {
+        Some(c) => c,
+        None => return unauthorized()
+    };
+
+    let session_id = crumb.value();
+    if let Some(_) = sessions.get_user_by_session(session_id).await {
+        let maybe_track = room.player.current_track().await;
+
+        let msg = PlayerCurrentTrack {
+            status: if maybe_track.is_some() { 1 } else { 0 },
+            message: "Track loaded".to_string(),
+            track: maybe_track
+        };
+
+        responses::json_response(Status::Ok, &msg).unwrap()
+    } else {
+        unauthorized()
+    }
 }
 
 
@@ -186,7 +232,13 @@ async fn remove_track<'a>(
 }
 
 pub fn get_routes() -> Vec<Route> {
-    routes![next_track, previous_track, add_track, remove_track]
+    routes![
+        next_track,
+        previous_track,
+        add_track,
+        remove_track,
+        get_current_track
+    ]
 }
 
 async fn send_system_webhook(room: &Room, msg: String) {
@@ -215,7 +267,7 @@ fn not_found() -> Response<'static> {
 
 fn queue_empty() -> Response<'static> {
     let resp = PlayerResponse {
-        message: "Queue empty".to_string(),
+        message: "EMPTY".to_string(),
     };
     responses::json_response(Status::Ok, &resp).unwrap()
 }
