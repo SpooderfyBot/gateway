@@ -577,7 +577,12 @@
                 },
 
                 updateTimeElapsed: function () {
-                    const time = this.formatTime(Math.round(this.video.currentTime));
+                    let time;
+                    try {
+                        time = this.formatTime(Math.round(this.video.currentTime));
+                    } catch {
+                        return
+                    }
                     this.timeElapsed.innerText = `${time.minutes}:${time.seconds}`;
                     this.timeElapsed.setAttribute('datetime', `${time.minutes}m ${time.seconds}s`)
                 },
@@ -590,7 +595,13 @@
                 updateSeekTooltip: function (event) {
                     const skipTo = Math.round((event.offsetX / event.target.clientWidth) * parseInt(event.target.getAttribute('max'), 10));
                     this.seek.setAttribute('data-seek', skipTo)
-                    const t = this.formatTime(skipTo);
+                    let t;
+                    try {
+                        t = this.formatTime(skipTo);
+                    } catch {
+                        return
+                    }
+
                     this.seekTooltip.textContent = `${t.minutes}:${t.seconds}`;
                     const rect = video.getBoundingClientRect();
                     this.seekTooltip.style.left = `${event.pageX - rect.left}px`;
