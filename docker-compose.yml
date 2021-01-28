@@ -10,7 +10,8 @@ services:
     volumes:
       - .:/code
     ports:
-      - "5051:5051"
+      - "9000:8000"
+      - "9090:8080"
 
 networks:
   default:

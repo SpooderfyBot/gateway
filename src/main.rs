@@ -1,107 +1,80 @@
 #[macro_use]
+extern crate rocket;
+
+#[macro_use]
 extern crate lazy_static;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::error;
-use std::net::SocketAddr;
-use std::fs;
 
+use hashbrown::HashMap;
 use tokio::sync::RwLock;
+use std::sync::Arc;
 use warp::Filter;
-use chrono::Utc;
-use serde::{Serialize, Deserialize};
+use std::net::SocketAddr;
 
-mod emitters;
+mod player;
+mod clients;
 mod rooms;
+mod utils;
+mod json;
+mod opcodes;
+mod security;
+mod html;
+mod messenger;
+mod webhook;
 
-use crate::rooms::room::Room;
+pub static SPOODERFY_LOGO: &str = "https://cdn.discordapp.com/avatars/585225058683977750/73628acbb1304b05c718f22a380767bd.png?size=128";
 
-/// Our state of currently connected users known as the rooms.
-///
-/// - Key is their id
-/// - Value is a sender of `warp::ws::Message`
-type Rooms = Arc<RwLock<HashMap<String, Arc<Room>>>>;
+pub type Rooms = Arc<RwLock<HashMap<String, rooms::room::Room>>>;
 
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn error::Error>> {
-    let config = get_config();
+#[rocket::main]
+async fn main() {
+    // state
+    let rooms = Rooms::default();
+    let sessions = clients::Sessions::new();
 
-    let consumers_base = Rooms::default();
+    // routes
+    let player_routes = player::routes::get_routes();
+    let room_routes = rooms::routes::get_routes();
+    let html_routes = html::get_routes();
+    let session_routes = security::get_routes();
+    let message_routes = messenger::get_routes();
 
-    // Emitter
-    let consumers_lock = consumers_base.clone();
-    let consumers = warp::any().map(move || consumers_lock.clone());
 
-    let emitter = warp::path("emitters")
+    tokio::spawn(run_warp(rooms.clone()));
+
+    let _res = rocket::ignite()
+        .manage(rooms.clone())
+        .manage(sessions)
+        .mount("/api/player", player_routes)
+        .mount("/api/room", room_routes)
+        .mount("/api/room", message_routes)
+        .mount("/api", session_routes)
+        .mount("/room", html_routes)
+        .launch()
+        .await;
+}
+
+
+async fn run_warp(rooms: Rooms) {
+    let rooms = warp::any().map(move || rooms.clone());
+
+    let gateway = warp::path("ws")
         .and(warp::ws())
-        .and(consumers)
-        .map(|ws: warp::ws::Ws, consumers: Rooms| {
+        .and(warp::query::<std::collections::HashMap<String, String>>())
+        .and(rooms)
+        .map(|ws: warp::ws::Ws, query, rooms| {
             // This will call our function if the handshake succeeds.
-            ws.on_upgrade(move |socket| emitters::on_emitter_connect(
-                socket,
-                consumers,
-            ))
-        });
-
-    // Consumer
-    let consumers_lock = consumers_base.clone();
-    let consumers = warp::any().map(move || consumers_lock.clone());
-
-    let consumer = warp::path("ws")
-        .and(warp::ws())
-        .and(warp::query::<HashMap<String, String>>())
-        .and(consumers)
-        .map(|ws: warp::ws::Ws, query, consumers| {
-            // This will call our function if the handshake succeeds.
-            ws.on_upgrade(move |socket| rooms::on_consumer_connect(
+            ws.on_upgrade(move |socket| clients::routes::ws::handle(
                 socket,
                 query,
-                consumers,
+                rooms,
             ))
         });
 
-    // Adding rooms and deleting
-    let consumers_lock = consumers_base.clone();
-    let consumers = warp::any().map(move || consumers_lock.clone());
-
-    let room_management = warp::post()
-        .and(warp::path("alter"))
-        .and(warp::query::<HashMap<String, String>>())
-        .and(consumers)
-        .and_then(rooms::create_or_delete_room);
-
-    println!(
-        "[ {} ] Running @ ws://{}",
-        Utc::now().format("%D | %T"),
-        &config.server_host
-    );
-
-    let server: SocketAddr = config.server_host
+    let server: SocketAddr = "0.0.0.0:8080"
         .parse()
         .expect("Unable to parse socket address");
 
-    let route = room_management
-        .or(consumer)
-        .or(emitter);
-    warp::serve(route).run(server).await;
-    Ok(())
-}
-
-
-fn get_config() -> ServerConfig {
-    let config = fs::read_to_string("./config.json")
-        .expect("could not load config");
-    let config: ServerConfig = serde_json::from_str(&config)
-        .expect("could not parse json");
-
-
-    config
-}
-
-
-#[derive(Serialize, Deserialize)]
-struct ServerConfig {
-    server_host: String,
+    warp::serve(gateway).run(server).await;
 }
