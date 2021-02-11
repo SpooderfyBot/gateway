@@ -1,80 +1,106 @@
-#[macro_use]
-extern crate rocket;
-
-#[macro_use]
-extern crate lazy_static;
-
-
-use hashbrown::HashMap;
-use tokio::sync::RwLock;
-use std::sync::Arc;
-use warp::Filter;
-use std::net::SocketAddr;
-
-mod player;
-mod clients;
-mod rooms;
-mod utils;
-mod json;
+mod ws;
+mod managers;
 mod opcodes;
-mod security;
-mod html;
-mod messenger;
-mod webhook;
 
-pub static SPOODERFY_LOGO: &str = "https://cdn.discordapp.com/avatars/585225058683977750/73628acbb1304b05c718f22a380767bd.png?size=128";
+use managers::RoomManager;
+use ws::connect_client;
 
-pub type Rooms = Arc<RwLock<HashMap<String, rooms::room::Room>>>;
+use warp::Filter;
+use warp::ws::Ws;
+use warp::reply::Response;
+use warp::http::header::ACCESS_CONTROL_ALLOW_ORIGIN;
+use warp::http::header::ACCESS_CONTROL_ALLOW_METHODS;
+use warp::http::header::ACCESS_CONTROL_ALLOW_HEADERS;
+use warp::hyper::header::HeaderValue;
+
+use bytes::Bytes;
 
 
-#[rocket::main]
+#[tokio::main]
 async fn main() {
-    // state
-    let rooms = Rooms::default();
-    let sessions = clients::Sessions::new();
+    let room_manager1 = RoomManager::new();
+    let room_manager2 = room_manager1.clone();
+    let room_manager3 = room_manager1.clone();
+    let room_manager4 = room_manager1.clone();
 
-    // routes
-    let player_routes = player::routes::get_routes();
-    let room_routes = rooms::routes::get_routes();
-    let html_routes = html::get_routes();
-    let session_routes = security::get_routes();
-    let message_routes = messenger::get_routes();
+    let rooms1 = warp::any()
+        .map(move || room_manager1.clone());
 
-
-    tokio::spawn(run_warp(rooms.clone()));
-
-    let _res = rocket::ignite()
-        .manage(rooms.clone())
-        .manage(sessions)
-        .mount("/api/player", player_routes)
-        .mount("/api/room", room_routes)
-        .mount("/api/room", message_routes)
-        .mount("/api", session_routes)
-        .mount("/room", html_routes)
-        .launch()
-        .await;
-}
-
-
-async fn run_warp(rooms: Rooms) {
-    let rooms = warp::any().map(move || rooms.clone());
-
-    let gateway = warp::path("ws")
+    // GET /gateway/<room_id> -> websocket upgrade
+    let gateway = warp::path!("ws" / String)
+        // The `ws()` filter will prepare Websocket handshake...
         .and(warp::ws())
-        .and(warp::query::<std::collections::HashMap<String, String>>())
-        .and(rooms)
-        .map(|ws: warp::ws::Ws, query, rooms| {
-            // This will call our function if the handshake succeeds.
-            ws.on_upgrade(move |socket| clients::routes::ws::handle(
-                socket,
-                query,
-                rooms,
-            ))
+        .and(rooms1)
+        .map(|room_id: String, ws: Ws, rooms: RoomManager| {
+            ws.on_upgrade(move |socket| {
+                connect_client(socket, room_id, rooms)
+            })
         });
 
-    let server: SocketAddr = "0.0.0.0:8080"
-        .parse()
-        .expect("Unable to parse socket address");
 
-    warp::serve(gateway).run(server).await;
+    let rooms2 = warp::any()
+        .map(move || room_manager2.clone());
+
+    // GET /add/<room_id> -> Makes a room
+    let add_room = warp::path!("add" / String)
+        // The `ws()` filter will prepare Websocket handshake...
+        .and(rooms2)
+        .map(|room_id: String, rooms: RoomManager| {
+            rooms.create_room(room_id);
+
+            "Made room!"
+        });
+
+
+    let rooms3 = warp::any()
+        .map(move || room_manager3.clone());
+
+    // GET /remove/<room_id> -> Removes a room
+    let remove_room = warp::path!("remove" / String)
+        // The `ws()` filter will prepare Websocket handshake...
+        .and(rooms3)
+        .map(|room_id: String, rooms: RoomManager| {
+            rooms.delete_room(room_id);
+
+            "Removed room!"
+        });
+
+
+    let rooms4 = warp::any()
+        .map(move || room_manager4.clone());
+
+    // GET /<room_id>/emit -> Removes a room
+    let emit = warp::path!("emit"/ String)
+        // The `ws()` filter will prepare Websocket handshake...
+        .and(rooms4)
+        .and(warp::body::bytes())
+        .map(|room_id: String, rooms: RoomManager, body: Bytes| {
+            let msg = if let Some(room) = rooms.get(&room_id) {
+                let msg = String::from_utf8_lossy(body.as_ref());
+                room.send(msg.to_string());
+
+                "Operation complete!"
+            } else {
+                "Unknown room"
+            };
+
+            let mut resp = Response::new(msg.into());
+            let inst = resp.headers_mut();
+            inst.insert(ACCESS_CONTROL_ALLOW_HEADERS,HeaderValue::from_static("*"));
+            inst.insert(ACCESS_CONTROL_ALLOW_ORIGIN,HeaderValue::from_static("*"));
+            inst.insert(ACCESS_CONTROL_ALLOW_METHODS,HeaderValue::from_static("PUT"));
+
+            resp
+        });
+
+
+    let routes = gateway
+        .or(remove_room)
+        .or(add_room)
+        .or(emit);
+
+
+    warp::serve(routes).run(([0, 0, 0, 0], 3030)).await;
 }
+
+
