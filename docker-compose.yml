@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  spooderfy_gateway:
+    build: .
+    container_name: spooderfy_gateway
+    image: spooderfy_gateway
+    restart: always
+    command: cargo run --release
+    volumes:
+      - .:/code
+    ports:
+      - "9000:8000"
+      - "9090:8080"
+
+networks:
+  default:
+    external:
+      name: spooderfy_network
