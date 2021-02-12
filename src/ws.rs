@@ -6,6 +6,10 @@ use futures::{SinkExt, StreamExt};
 use crate::managers::{RoomReceiver, RoomManager};
 
 
+/// Handles a room client in the form of a websocket connection.
+///
+/// If a room does not exist the websocket is just immediately closed
+/// and ignored.
 pub async fn connect_client(
     ws: WebSocket,
     room_id: String,
@@ -38,6 +42,13 @@ pub async fn connect_client(
 }
 
 
+/// Handles a client with a room that exists.
+///
+/// This spawns a worker task that emits messages from the broadcast
+/// receiver to the websocket stream.
+///
+/// The websocket stays alive until the receiver half of the websocket
+/// returns None resulting in a client disconnect.
 async fn handle_client(
     ws: WebSocket,
     rooms: &RoomManager,
@@ -83,7 +94,8 @@ async fn handle_client(
 
 }
 
-
+/// Watches for messages from the broadcast channel and sends them to the
+/// websocket, this will end early if the websocket experiences and error.
 async fn watch_messages(mut ws: SplitSink<WebSocket, Message>, mut rx: RoomReceiver) {
     while let Ok(msg) = rx.recv().await {
         if let Err(_) = ws.send(Message::text(msg)).await {
@@ -97,3 +109,4 @@ async fn watch_messages(mut ws: SplitSink<WebSocket, Message>, mut rx: RoomRecei
 
     let _ = ws.close();
 }
+
