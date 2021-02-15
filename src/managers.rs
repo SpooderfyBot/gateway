@@ -252,12 +252,8 @@ impl Room {
     pub fn member_leave(&self) {
         let old = self.members.fetch_sub(1, Relaxed);
 
-        if (old - 1) == 0 {
-            self.adjust_modifier(0);
-        } else {
-            let multiplier_maybe = ((old - 1) as f32).log10() * 4f32;
-            self.adjust_modifier(multiplier_maybe.round() as usize);
-        }
+        let multiplier_maybe = ((old - 1) as f32).log10() * 4f32;
+        self.adjust_modifier(multiplier_maybe.round() as usize);
 
         let stats = self.get_basic_stats();
 
@@ -301,7 +297,12 @@ impl Room {
     /// modifier, this is then wrapped with member count and constructed into
     /// a Stats struct.
     pub fn get_basic_stats(&self) -> BasicStats {
-        let multiplier = self.multiplier.load(Relaxed) as f32 / 10f32;
+        let members = self.member_count();
+        let multiplier = if members > 0 {
+            self.multiplier.load(Relaxed) as f32 / 10f32
+        } else {
+            0f32
+        };
         BasicStats {
             members: self.member_count(),
             multiplier: format!("{:.1}x", multiplier),
@@ -311,7 +312,11 @@ impl Room {
     /// Loads and exports the current room stats including the streaming stats.
     pub fn get_full_stats(&self) -> FullStats {
         let members = self.member_count();
-        let multiplier = self.multiplier.load(Relaxed) as f32 / 10f32;
+        let multiplier = if members > 0 {
+            self.multiplier.load(Relaxed) as f32 / 10f32
+        } else {
+            0f32
+        };
         let total_bytes_streamed = self.data_streamed.load(Relaxed);
         let avg_bytes_per_sec = self.avg_byte_rate.load(Relaxed);
         let avg_stream_time = total_bytes_streamed / avg_bytes_per_sec;
