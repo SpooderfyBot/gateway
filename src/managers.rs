@@ -52,7 +52,7 @@ impl RoomManager {
             live_server: Arc::new(live_server),
             sender: tx,
             members: Arc::from(AtomicUsize::new(0)),
-            multiplier: Arc::from(AtomicUsize::new(10)),
+            multiplier: Arc::from(AtomicUsize::new(0)),
             avg_byte_rate: Arc::from(AtomicUsize::new(0)),
             data_streamed: Arc::from(AtomicUsize::new(0)),
             stream_time: Arc::new(AtomicUsize::new(0))
@@ -252,9 +252,12 @@ impl Room {
     pub fn member_leave(&self) {
         let old = self.members.fetch_sub(1, Relaxed);
 
-        let multiplier_maybe = ((old - 1) as f32).log10() * 4f32;
-        self.adjust_modifier(multiplier_maybe.round() as usize);
-
+        if (old - 1) == 0 {
+            self.adjust_modifier(0);
+        } else {
+            let multiplier_maybe = ((old - 1) as f32).log10() * 4f32;
+            self.adjust_modifier(multiplier_maybe.round() as usize);
+        }
 
         let stats = self.get_basic_stats();
 
