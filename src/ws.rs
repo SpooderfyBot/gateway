@@ -1,9 +1,10 @@
 use warp::ws::{WebSocket, Message};
-
+use std::sync::atomic::Ordering::Relaxed;
 use futures::stream::SplitSink;
 use futures::{SinkExt, StreamExt};
 
 use crate::managers::{RoomReceiver, RoomManager};
+use crate::opcodes;
 
 
 /// Handles a room client in the form of a websocket connection.
@@ -62,6 +63,16 @@ async fn handle_client(
     {
         if let Some(room) = rooms.get(&room_id) {
             room.member_join();
+            room.is_live.store(true, Relaxed);
+
+            let url = format!("{}/live/{}.flv", &room.live_server, &room.room_id);
+            let payload = serde_json::json!({
+                "opcode":  opcodes::OP_LIVE_READY,
+                "payload": {
+                    "stream_url": url,
+                }
+            });
+            room.send(serde_json::to_string(&payload).unwrap())
         };
     }
 

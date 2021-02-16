@@ -1,5 +1,4 @@
 use warp::http::StatusCode;
-
 use tokio::sync::broadcast;
 use tokio::time::{self, Duration};
 use tokio::task::JoinHandle;
@@ -12,14 +11,22 @@ use serde::{Serialize, Deserialize};
 
 use std::sync::Arc;
 use std::collections::hash_map::RandomState;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, AtomicBool};
 use std::sync::atomic::Ordering::Relaxed;
+use std::env;
 
 use crate::opcodes;
 use crate::utils;
 
 pub type RoomSender = broadcast::Sender<String>;
 pub type RoomReceiver = broadcast::Receiver<String>;
+
+
+lazy_static! {
+    static ref API_KEY: String = {
+        env::var("API_KEY").unwrap_or_else(|_| "".to_string())
+    };
+}
 
 
 /// A controller actor that manages room creation and deletion for
@@ -55,7 +62,8 @@ impl RoomManager {
             multiplier: Arc::from(AtomicUsize::new(0)),
             avg_byte_rate: Arc::from(AtomicUsize::new(0)),
             data_streamed: Arc::from(AtomicUsize::new(0)),
-            stream_time: Arc::new(AtomicUsize::new(0))
+            stream_time: Arc::new(AtomicUsize::new(0)),
+            is_live: Arc::new(AtomicBool::new(false))
         };
 
         // why are you doing this??
@@ -184,10 +192,10 @@ struct StreamStats {
 #[derive(Clone)]
 pub struct Room {
     /// The room id.
-    room_id: Arc<String>,
+    pub(crate) room_id: Arc<String>,
 
     /// The live server url
-    live_server: Arc<String>,
+    pub(crate) live_server: Arc<String>,
 
     /// The message broadcasting channel.
     sender: RoomSender,
@@ -206,6 +214,9 @@ pub struct Room {
 
     /// Approx length of streaming time in seconds.
     stream_time: Arc<AtomicUsize>,
+
+    /// A bool representing if the stream is live or not.
+    pub(crate) is_live: Arc<AtomicBool>,
 }
 
 impl Room {
@@ -343,9 +354,10 @@ impl Room {
         loop {
             let maybe_resp = client
                 .get(&format!(
-                    "{}/stats/livestat?room={}",
+                    "{}/stats/livestat?room={}&authorization={}",
                     &self.live_server,
-                    &self.room_id
+                    &self.room_id,
+                    API_KEY.as_str(),
                 ))
                 .send()
                 .await;
@@ -390,7 +402,7 @@ impl Room {
                     "[ ROOM {} ] Room is not streaming... Aborting sampling.",
                     &self.room_id,
                 );
-                time::sleep(Duration::from_secs(60)).await;
+                time::sleep(Duration::from_secs(10)).await;
                 continue
             } else if status != StatusCode::OK {
                 let msg = match maybe_data {
@@ -415,6 +427,17 @@ impl Room {
 
                 time::sleep(Duration::from_secs(60)).await;
                 continue
+            } else {
+                self.is_live.store(true, Relaxed);
+
+                let url = format!("{}/live/{}.flv", &self.live_server, &self.room_id);
+                let payload = serde_json::json!({
+                    "opcode":  opcodes::OP_LIVE_READY,
+                    "payload": {
+                        "stream_url": url,
+                    }
+                });
+                self.send(serde_json::to_string(&payload).unwrap())
             }
 
             let data = maybe_data.unwrap();
@@ -433,7 +456,12 @@ impl Room {
                     let avg_rate = sliced.iter().sum::<usize>() / sliced.len();
                     self.avg_byte_rate.store(avg_rate, Relaxed);
 
-                    let avg_time = total_b / avg_rate;
+                     let avg_time = if (total_b > 0) & (avg_rate > 0) {
+                        total_b / avg_rate
+                    } else {
+                        0usize
+                    };
+
                     self.stream_time.store(avg_time, Relaxed);
 
                     println!(
