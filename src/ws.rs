@@ -63,16 +63,17 @@ async fn handle_client(
     {
         if let Some(room) = rooms.get(&room_id) {
             room.member_join();
-            room.is_live.store(true, Relaxed);
 
-            let url = format!("{}/live/{}.flv", &room.live_server, &room.room_id);
-            let payload = serde_json::json!({
-                "opcode":  opcodes::OP_LIVE_READY,
-                "payload": {
-                    "stream_url": url,
-                }
-            });
-            room.send(serde_json::to_string(&payload).unwrap())
+            if room.is_live.load(Relaxed) {
+                let url = format!("{}/live/{}.flv", &room.live_server, &room.room_id);
+                let payload = serde_json::json!({
+                    "opcode":  opcodes::OP_LIVE_READY,
+                    "payload": {
+                        "stream_url": url,
+                    }
+                });
+                room.send(serde_json::to_string(&payload).unwrap())
+            }
         };
     }
 
