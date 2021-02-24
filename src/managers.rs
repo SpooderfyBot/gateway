@@ -58,10 +58,11 @@ impl RoomManager {
             room_id: Arc::new(room_id.clone()),
             live_server: Arc::new(live_server),
             sender: tx,
-            members: Arc::from(AtomicUsize::new(0)),
-            multiplier: Arc::from(AtomicUsize::new(0)),
-            avg_byte_rate: Arc::from(AtomicUsize::new(0)),
-            data_streamed: Arc::from(AtomicUsize::new(0)),
+            members: Arc::new(AtomicUsize::new(0)),
+            multiplier: Arc::new(AtomicUsize::new(0)),
+            avg_byte_rate: Arc::new(AtomicUsize::new(0)),
+            data_streamed: Arc::new(AtomicUsize::new(0)),
+            last_time_sample: Arc::new(AtomicUsize::new(0)),
             stream_time: Arc::new(AtomicUsize::new(0)),
             is_live: Arc::new(AtomicBool::new(false))
         };
@@ -211,6 +212,9 @@ pub struct Room {
 
     /// The total amount of bytes streamed to the server.
     data_streamed: Arc<AtomicUsize>,
+
+    /// Stores the last sampled stream time.
+    last_time_sample: Arc<AtomicUsize>,
 
     /// Approx length of streaming time in seconds.
     stream_time: Arc<AtomicUsize>,
@@ -402,6 +406,10 @@ impl Room {
                     "[ ROOM {} ] Room is not streaming... Aborting sampling.",
                     &self.room_id,
                 );
+
+                self.is_live.store(false, Relaxed);
+                self.last_time_sample.store(0, Relaxed);
+
                 time::sleep(Duration::from_secs(10)).await;
                 continue
             } else if status != StatusCode::OK {
@@ -456,20 +464,30 @@ impl Room {
                     let avg_rate = sliced.iter().sum::<usize>() / sliced.len();
                     self.avg_byte_rate.store(avg_rate, Relaxed);
 
-                     let avg_time = if (total_b > 0) & (avg_rate > 0) {
+                    let last_sample = self.last_time_sample.load(Relaxed);
+                    let avg_time = if (total_b > 0) & (avg_rate > 0) {
                         total_b / avg_rate
                     } else {
                         0usize
                     };
+                    self.last_time_sample.store(avg_time, Relaxed);
 
-                    self.stream_time.store(avg_time, Relaxed);
+                    let mut delta = avg_time as isize - last_sample as isize;
+
+                    if delta < 0 {
+                        delta = 0;
+                    }
+
+                    let old = self.stream_time.fetch_add(delta as usize, Relaxed);
 
                     println!(
                         "[ ROOM {} ] Sampled steam, Total: {:}, Avg Rate: {}/Sec, Avg Time: {}",
                         &self.room_id,
                         utils::format_data(total_b as f64),
                         utils::format_data(avg_rate as f64),
-                        utils::humanize(Duration::from_secs(avg_time as u64)),
+                        utils::humanize(Duration::from_secs(
+                            (old + delta as usize) as u64
+                        )),
                     )
                 },
                 Err(e) => {
