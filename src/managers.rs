@@ -438,7 +438,7 @@ impl Room {
             } else {
                 self.is_live.store(true, Relaxed);
 
-                let url = format!("{}/live/{}.flv", &self.live_server, &self.room_id);
+                let url = format!("{}/live/{}.m3u8", &self.live_server, &self.room_id);
                 let payload = serde_json::json!({
                     "opcode":  opcodes::OP_LIVE_READY,
                     "payload": {
