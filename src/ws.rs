@@ -65,7 +65,7 @@ async fn handle_client(
             room.member_join();
 
             if room.is_live.load(Relaxed) {
-                let url = format!("{}/live/{}.flv", &room.live_server, &room.room_id);
+                let url = format!("{}/live/{}.m3u8", &room.live_server, &room.room_id);
                 let payload = serde_json::json!({
                     "opcode":  opcodes::OP_LIVE_READY,
                     "payload": {
